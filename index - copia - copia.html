@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Agenda El Faro</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --primary: #38bdf8;
+            --libre: #10b981;
+            --ocupado: #f43f5e;
+            --text: #f1f5f9;
+            --subtext: #94a3b8;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .header {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+
+        .sticky-tools {
+            position: sticky;
+            top: 10px;
+            z-index: 100;
+            background: var(--bg);
+            padding-bottom: 15px;
+            width: 100%;
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        select,
+        input {
+            padding: 12px;
+            border-radius: 10px;
+            background: var(--card);
+            color: white;
+            border: 1px solid #334155;
+            font-size: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .agenda-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .item {
+            background: var(--card);
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 6px solid #444;
+        }
+
+        .item.libre {
+            border-left-color: var(--libre);
+        }
+
+        .item.ocupado {
+            border-left-color: var(--ocupado);
+        }
+
+        .time-box {
+            min-width: 70px;
+            font-weight: 800;
+            color: var(--primary);
+            font-size: 1.2rem;
+            border-right: 1px solid #334155;
+            margin-right: 15px;
+        }
+
+        .info-box {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .alumno-name {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        #loader {
+            text-align: center;
+            margin-top: 50px;
+            opacity: 0.6;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            opacity: 0.5;
+        }
+
+        .spinner {
+            margin: 20px auto;
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-left-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>Agenda El Faro</h1>
+        </div>
+
+        <div class="sticky-tools">
+            <input type="text" id="searchInput" placeholder="🔍 Buscar alumno..." style="margin-bottom: 10px;">
+            <div class="filters">
+                <select id="fDia">
+                    <option value="">📅 Día (Todos)</option>
+                    <option value="Lunes">Lunes</option>
+                    <option value="Martes">Martes</option>
+                    <option value="Miércoles">Miércoles</option>
+                    <option value="Jueves">Jueves</option>
+                    <option value="Viernes">Viernes</option>
+                    <option value="Sábado">Sábado</option>
+                </select>
+                <select id="fProfe">
+                    <option value="">👤 Profe (Todos)</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="loader">
+            <div class="spinner"></div>
+            <p>Sincronizando...</p>
+        </div>
+
+        <div id="agenda" class="agenda-list"></div>
+    </div>
+
+    <script>
+        const API = "https://script.google.com/macros/s/AKfycbxPszWtN-ZhdkPme23V_P1hS_mPtDNcQIIrRzz6Fa6uplq7TjKWK6Sb6xVzZzIErFE4/exec";
+        let dataStore = [];
+
+        async function load() {
+            try {
+                const r = await fetch(API);
+                dataStore = await r.json();
+
+                // Si el script de Google detecta un error interno, lo devuelve en el array
+                if (dataStore.length > 0 && dataStore[0].hora === "ERROR") {
+                    document.getElementById('loader').innerHTML = `<p style="color:#f43f5e;">${dataStore[0].alumno}</p>`;
+                    return;
+                }
+
+                dataStore.sort((a, b) => a.hora.localeCompare(b.hora));
+                document.getElementById('loader').style.display = 'none';
+
+                const profes = [...new Set(dataStore.map(i => i.profe))].filter(p => p !== "SISTEMA").sort();
+                const select = document.getElementById('fProfe');
+                profes.forEach(p => {
+                    const o = document.createElement('option');
+                    o.value = p; o.textContent = p;
+                    select.appendChild(o);
+                });
+
+                render();
+            } catch (e) {
+                document.getElementById('loader').textContent = "Error de conexión.";
+            }
+        }
+
+        function render() {
+            const agenda = document.getElementById('agenda');
+            const dia = document.getElementById('fDia').value;
+            const profe = document.getElementById('fProfe').value;
+            const search = document.getElementById('searchInput').value.toLowerCase();
+
+            const filtered = dataStore.filter(i => {
+                const matchFiltros = (dia === "" || i.dia === dia) && (profe === "" || i.profe === profe);
+                const matchSearch = i.alumno.toLowerCase().includes(search);
+                return matchFiltros && matchSearch;
+            });
+
+            if (filtered.length === 0) {
+                agenda.innerHTML = '<div class="empty">Sin resultados</div>';
+                return;
+            }
+
+            agenda.innerHTML = filtered.map(i => `
+                <div class="item ${i.estado}">
+                    <div class="time-box">${i.hora}</div>
+                    <div class="info-box">
+                        <span class="alumno-name">${i.alumno === "LIBRE" ? '<span style="color:var(--libre)">Disponible</span>' : i.alumno}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('fDia').onchange = render;
+        document.getElementById('fProfe').onchange = render;
+        document.getElementById('searchInput').oninput = render;
+
+        load();
+    </script>
+</body>
+
+</html>
