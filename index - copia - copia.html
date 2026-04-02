@@ -56,19 +56,16 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
-            margin-bottom: 10px;
         }
 
-        select,
-        input {
+        select {
             padding: 12px;
             border-radius: 10px;
             background: var(--card);
             color: white;
             border: 1px solid #334155;
-            font-size: 1rem;
+            font-size: 0.9rem;
             width: 100%;
-            box-sizing: border-box;
             outline: none;
         }
 
@@ -97,10 +94,10 @@
         }
 
         .time-box {
-            min-width: 70px;
+            min-width: 65px;
             font-weight: 800;
             color: var(--primary);
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             border-right: 1px solid #334155;
             margin-right: 15px;
         }
@@ -111,9 +108,22 @@
             flex-direction: column;
         }
 
+        .profe-tag {
+            font-size: 0.7rem;
+            color: var(--subtext);
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
         .alumno-name {
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: 500;
+        }
+
+        .sede-tag {
+            font-size: 0.65rem;
+            color: var(--subtext);
+            margin-top: 2px;
         }
 
         #loader {
@@ -154,10 +164,9 @@
         </div>
 
         <div class="sticky-tools">
-            <input type="text" id="searchInput" placeholder="🔍 Buscar alumno..." style="margin-bottom: 10px;">
             <div class="filters">
                 <select id="fDia">
-                    <option value="">📅 Día (Todos)</option>
+                    <option value="">📅 Día</option>
                     <option value="Lunes">Lunes</option>
                     <option value="Martes">Martes</option>
                     <option value="Miércoles">Miércoles</option>
@@ -166,14 +175,14 @@
                     <option value="Sábado">Sábado</option>
                 </select>
                 <select id="fProfe">
-                    <option value="">👤 Profe (Todos)</option>
+                    <option value="">👤 Profe</option>
                 </select>
             </div>
         </div>
 
         <div id="loader">
             <div class="spinner"></div>
-            <p>Sincronizando...</p>
+            <p>Cargando...</p>
         </div>
 
         <div id="agenda" class="agenda-list"></div>
@@ -187,14 +196,6 @@
             try {
                 const r = await fetch(API);
                 dataStore = await r.json();
-
-                // Si el script de Google detecta un error interno, lo devuelve en el array
-                if (dataStore.length > 0 && dataStore[0].hora === "ERROR") {
-                    document.getElementById('loader').innerHTML = `<p style="color:#f43f5e;">${dataStore[0].alumno}</p>`;
-                    return;
-                }
-
-                dataStore.sort((a, b) => a.hora.localeCompare(b.hora));
                 document.getElementById('loader').style.display = 'none';
 
                 const profes = [...new Set(dataStore.map(i => i.profe))].filter(p => p !== "SISTEMA").sort();
@@ -207,24 +208,21 @@
 
                 render();
             } catch (e) {
-                document.getElementById('loader').textContent = "Error de conexión.";
+                document.getElementById('loader').textContent = "Error de red.";
             }
         }
 
         function render() {
             const agenda = document.getElementById('agenda');
-            const dia = document.getElementById('fDia').value;
-            const profe = document.getElementById('fProfe').value;
-            const search = document.getElementById('searchInput').value.toLowerCase();
+            const diaSel = document.getElementById('fDia').value;
+            const profeSel = document.getElementById('fProfe').value;
 
             const filtered = dataStore.filter(i => {
-                const matchFiltros = (dia === "" || i.dia === dia) && (profe === "" || i.profe === profe);
-                const matchSearch = i.alumno.toLowerCase().includes(search);
-                return matchFiltros && matchSearch;
+                return (diaSel === "" || i.dia === diaSel) && (profeSel === "" || i.profe === profeSel);
             });
 
             if (filtered.length === 0) {
-                agenda.innerHTML = '<div class="empty">Sin resultados</div>';
+                agenda.innerHTML = '<div class="empty">Nada por aquí</div>';
                 return;
             }
 
@@ -232,7 +230,9 @@
                 <div class="item ${i.estado}">
                     <div class="time-box">${i.hora}</div>
                     <div class="info-box">
+                        <span class="profe-tag">${i.profe}</span>
                         <span class="alumno-name">${i.alumno === "LIBRE" ? '<span style="color:var(--libre)">Disponible</span>' : i.alumno}</span>
+                        <span class="sede-tag">${i.sede} • ${i.dia}</span>
                     </div>
                 </div>
             `).join('');
@@ -240,7 +240,6 @@
 
         document.getElementById('fDia').onchange = render;
         document.getElementById('fProfe').onchange = render;
-        document.getElementById('searchInput').oninput = render;
 
         load();
     </script>
